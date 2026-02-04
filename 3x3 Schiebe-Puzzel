@@ -1,4 +1,3 @@
-<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8" />
@@ -180,7 +179,7 @@
           <button class="ctrl" id="btnSolve">Auto lösen</button>
           <button class="ctrl" id="btnStop" disabled>Stop</button>
           <button class="ctrl" id="btnReset">Reset</button>
-          <button class="ctrl" id="btnLog">Log anzeigen</button>
+          <button class="ctrl" id="btnLog">Log</button>
         </div>
 
         <div class="row">
@@ -648,7 +647,7 @@
     btnLog.addEventListener("click", () => {
       const vis = !logPanel.classList.contains("visible");
       logPanel.classList.toggle("visible", vis);
-      btnLog.textContent = vis ? "Log verbergen" : "Log anzeigen";
+      btnLog.textContent = vis ? "Log" : "Log";
     });
 
     btnLogClear.addEventListener("click", () => {
