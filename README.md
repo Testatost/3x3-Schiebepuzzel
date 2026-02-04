@@ -1,1 +1,754 @@
-# 3x3 Schiebepuzzel
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3x3 Schiebe-Puzzel</title>
+  <style>
+    :root{
+      --tile: 92px;
+      --gap: 10px;
+      --pad: 12px;
+      --anim: 160ms;
+      --panelW: 320px;
+      --bg: #0b1220;
+      --card: #111827;
+      --board: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --tileBg: #e5e7eb;
+    }
+    *{ box-sizing: border-box; }
+    body{
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 18px;
+    }
+    .app{
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .left{
+      width: 420px;
+    }
+    .title{
+      text-align: center;
+      font-weight: 800;
+      font-size: 20px;
+      margin-bottom: 14px;
+    }
+    .board{
+      position: relative;
+      width: calc(var(--pad)*2 + var(--tile)*3 + var(--gap)*2);
+      height: calc(var(--pad)*2 + var(--tile)*3 + var(--gap)*2);
+      background: var(--board);
+      border-radius: 16px;
+      margin: 0 auto 14px auto;
+      overflow: hidden;
+      user-select: none;
+    }
+    .tile{
+      position: absolute;
+      width: var(--tile);
+      height: var(--tile);
+      border-radius: 14px;
+      border: none;
+      font-size: 28px;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--tileBg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: left var(--anim) cubic-bezier(.2,.8,.2,1), top var(--anim) cubic-bezier(.2,.8,.2,1);
+      overflow: hidden;
+    }
+    .tile:hover{ filter: brightness(1.05); }
+    .tile:active{ filter: brightness(0.95); }
+    .tile.img{
+      background: transparent;
+      outline: none;
+    }
+    .tile img{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: 14px;
+    }
+    .controls{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .row{
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    label{ color: var(--muted); font-size: 13px; }
+    input[type="text"]{
+      width: 140px;
+      height: 30px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #0f172a;
+      color: var(--text);
+      padding: 0 10px;
+      outline: none;
+    }
+    button.ctrl{
+      width: 110px;
+      height: 30px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #0f172a;
+      color: var(--text);
+      cursor: pointer;
+    }
+    button.ctrl:hover{ filter: brightness(1.08); }
+    button.ctrl:disabled{
+      opacity: .45;
+      cursor: not-allowed;
+    }
+    .status{
+      text-align: center;
+      margin-top: 10px;
+      min-height: 22px;
+      color: var(--text);
+    }
+
+    .logpanel{
+      width: var(--panelW);
+      background: var(--card);
+      border-radius: 12px;
+      padding: 10px;
+      display: none;
+    }
+    .logpanel.visible{ display: block; }
+    .logtitle{
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .log{
+      background: #0b1220;
+      border: 1px solid #1f2937;
+      border-radius: 10px;
+      padding: 8px;
+      height: 420px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    .logbtnrow{
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 10px;
+    }
+    .hint{
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="left">
+      <div class="title">3×3 Schiebe-Puzzel</div>
+
+      <div class="board" id="board" aria-label="Puzzle-Board"></div>
+
+      <div class="controls">
+        <div class="row">
+          <label for="input">Felder setzen:</label>
+          <input id="input" type="text" value="1 2 3 4 5 6 7 8 0" placeholder="z.B. 123456780" />
+          <button class="ctrl" id="btnSet">Setzen</button>
+          <button class="ctrl" id="btnShuffle">Mischen</button>
+        </div>
+
+        <div class="row">
+          <button class="ctrl" id="btnSolve">Auto lösen</button>
+          <button class="ctrl" id="btnStop" disabled>Stop</button>
+          <button class="ctrl" id="btnReset">Reset</button>
+          <button class="ctrl" id="btnLog">Log</button>
+        </div>
+
+        <div class="row">
+          <button class="ctrl" id="btnCheck">Prüfen</button>
+          <button class="ctrl" id="btnImgLoad">Bild laden</button>
+          <button class="ctrl" id="btnImgClear" disabled>Bild löschen</button>
+          <input id="file" type="file" accept="image/*" hidden />
+        </div>
+      </div>
+
+      <div class="status" id="status"></div>
+      <div class="hint">Kachel anklicken, die neben dem freien Feld liegt.</div>
+    </div>
+
+    <div class="logpanel" id="logPanel">
+      <div class="logtitle">Zug-Log</div>
+      <div class="log" id="log"></div>
+      <div class="logbtnrow">
+        <button class="ctrl" id="btnLogClear">Log leeren</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -----------------------------
+    // Puzzle-Logik
+    // -----------------------------
+    const GOAL = [1,2,3,4,5,6,7,8,0];
+    const GOAL_POS = new Map(GOAL.map((v,i)=>[v,i]));
+
+    function inversions(state){
+      const arr = state.filter(x=>x!==0);
+      let inv = 0;
+      for(let i=0;i<arr.length;i++){
+        for(let j=i+1;j<arr.length;j++){
+          if(arr[i] > arr[j]) inv++;
+        }
+      }
+      return inv;
+    }
+    function isSolvable3x3(state){
+      // 3x3: lösbar <=> Inversionen gerade
+      return inversions(state) % 2 === 0;
+    }
+
+    function parseState(text){
+      const t0 = (text ?? "").trim();
+      if(!t0) return null;
+
+      // "123456780"
+      if(/^\d{9}$/.test(t0)){
+        const vals = [...t0].map(ch=>Number(ch));
+        if(vals.slice().sort((a,b)=>a-b).join(",") !== "0,1,2,3,4,5,6,7,8") return null;
+        return vals;
+      }
+
+      // "1 2 3..." oder "1,2,3..."
+      const parts = t0.replace(/[;,]/g," ").split(/\s+/).filter(Boolean);
+      if(parts.length !== 9) return null;
+      const vals = parts.map(p=>Number(p));
+      if(vals.some(v=>!Number.isInteger(v))) return null;
+      const s = vals.slice().sort((a,b)=>a-b).join(",");
+      if(s !== "0,1,2,3,4,5,6,7,8") return null;
+      return vals;
+    }
+
+    function neighbors(index){
+      const r = Math.floor(index / 3);
+      const c = index % 3;
+      const out = [];
+      if(r > 0) out.push(index - 3);
+      if(r < 2) out.push(index + 3);
+      if(c > 0) out.push(index - 1);
+      if(c < 2) out.push(index + 1);
+      return out;
+    }
+
+    function manhattan(state){
+      let dist = 0;
+      for(let i=0;i<state.length;i++){
+        const v = state[i];
+        if(v === 0) continue;
+        const gi = GOAL_POS.get(v);
+        const r1 = Math.floor(i/3), c1 = i%3;
+        const r2 = Math.floor(gi/3), c2 = gi%3;
+        dist += Math.abs(r1-r2) + Math.abs(c1-c2);
+      }
+      return dist;
+    }
+
+    // A* Solver: gibt Liste der zu bewegenden Tile-Werte zurück, oder null
+    function astarSolve(startArr, maxExpansions = 250000){
+      const start = startArr.join(",");
+      const goal = GOAL.join(",");
+      if(start === goal) return [];
+
+      // Min-Heap (klein, daher simpel sortiertes Array reicht; für Performance: echte Heap)
+      // Wir bauen eine echte Heap-Implementierung für Stabilität.
+      class MinHeap{
+        constructor(){ this.a = []; }
+        push(x){ this.a.push(x); this._up(this.a.length-1); }
+        pop(){
+          if(this.a.length===0) return null;
+          const top = this.a[0];
+          const last = this.a.pop();
+          if(this.a.length){ this.a[0]=last; this._down(0); }
+          return top;
+        }
+        _up(i){
+          while(i>0){
+            const p = (i-1)>>1;
+            if(this.a[p][0] <= this.a[i][0]) break;
+            [this.a[p],this.a[i]]=[this.a[i],this.a[p]];
+            i=p;
+          }
+        }
+        _down(i){
+          const n = this.a.length;
+          while(true){
+            let l = i*2+1, r = l+1, m=i;
+            if(l<n && this.a[l][0] < this.a[m][0]) m=l;
+            if(r<n && this.a[r][0] < this.a[m][0]) m=r;
+            if(m===i) break;
+            [this.a[m],this.a[i]]=[this.a[i],this.a[m]];
+            i=m;
+          }
+        }
+        get size(){ return this.a.length; }
+      }
+
+      const open = new MinHeap();
+      const gCost = new Map(); // stateStr -> g
+      const parent = new Map(); // childStr -> {prevStr, moved}
+
+      const startState = startArr.slice();
+      const startH = manhattan(startState);
+      open.push([startH, 0, startState]);
+      gCost.set(start, 0);
+
+      let expansions = 0;
+
+      while(open.size){
+        const [f, g, state] = open.pop();
+        const key = state.join(",");
+        const best = gCost.get(key);
+        if(best === undefined || g !== best) continue;
+
+        if(key === goal){
+          const moves = [];
+          let cur = key;
+          while(parent.has(cur)){
+            const {prev, moved} = parent.get(cur);
+            moves.push(moved);
+            cur = prev;
+          }
+          moves.reverse();
+          return moves;
+        }
+
+        expansions++;
+        if(expansions > maxExpansions) return null;
+
+        const z = state.indexOf(0);
+        for(const nb of neighbors(z)){
+          const movedTile = state[nb];
+          const newState = state.slice();
+          newState[z] = newState[nb];
+          newState[nb] = 0;
+          const nk = newState.join(",");
+          const newG = g + 1;
+          const oldG = gCost.get(nk);
+          if(oldG === undefined || newG < oldG){
+            gCost.set(nk, newG);
+            parent.set(nk, {prev: key, moved: movedTile});
+            const newF = newG + manhattan(newState);
+            open.push([newF, newG, newState]);
+          }
+        }
+      }
+      return null;
+    }
+
+    // -----------------------------
+    // UI / State
+    // -----------------------------
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+    const inputEl = document.getElementById("input");
+
+    const btnSet = document.getElementById("btnSet");
+    const btnShuffle = document.getElementById("btnShuffle");
+    const btnSolve = document.getElementById("btnSolve");
+    const btnStop = document.getElementById("btnStop");
+    const btnReset = document.getElementById("btnReset");
+    const btnLog = document.getElementById("btnLog");
+    const btnCheck = document.getElementById("btnCheck");
+    const btnImgLoad = document.getElementById("btnImgLoad");
+    const btnImgClear = document.getElementById("btnImgClear");
+    const fileEl = document.getElementById("file");
+
+    const logPanel = document.getElementById("logPanel");
+    const logEl = document.getElementById("log");
+    const btnLogClear = document.getElementById("btnLogClear");
+
+    const TILE = 92, GAP = 10, PAD = 12;
+    const ANIM_MS = 160;
+    const PLAYBACK_GAP_MS = 40;
+
+    let state = GOAL.slice();
+    let initialState = state.slice();
+
+    let animating = false;
+    let autoPlaying = false;
+    let pendingMoves = [];
+
+    // Image mode
+    let imageMode = false;
+    let tileImages = new Map(); // val -> dataURL (cropped piece)
+
+    function cellPos(index){
+      const r = Math.floor(index/3);
+      const c = index % 3;
+      const x = PAD + c*(TILE+GAP);
+      const y = PAD + r*(TILE+GAP);
+      return {x,y};
+    }
+    function idxToRC(idx){
+      const r = Math.floor(idx/3), c = idx%3;
+      return [r+1, c+1];
+    }
+    function setStatus(){
+      statusEl.textContent = (state.join(",") === GOAL.join(",")) ? "✅ Zielzustand erreicht!" : "";
+    }
+
+    function log(msg){
+      logEl.textContent += (logEl.textContent ? "\n" : "") + msg;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setControlsEnabled(enabled){
+      inputEl.disabled = !enabled;
+      btnSet.disabled = !enabled;
+      btnShuffle.disabled = !enabled;
+      btnSolve.disabled = !enabled;
+      btnReset.disabled = !enabled;
+      btnCheck.disabled = !enabled;
+      btnImgLoad.disabled = !enabled;
+      btnImgClear.disabled = !(enabled && imageMode);
+
+      // tile buttons
+      for(const btn of boardEl.querySelectorAll(".tile")){
+        btn.disabled = !enabled;
+        btn.style.pointerEvents = enabled ? "auto" : "none";
+      }
+
+      // Log toggles always ok
+      btnLog.disabled = false;
+      btnLogClear.disabled = false;
+    }
+
+    // Build tiles (1..8)
+    const tileBtn = new Map(); // val -> button
+    function buildTiles(){
+      boardEl.innerHTML = "";
+      for(let v=1; v<=8; v++){
+        const b = document.createElement("button");
+        b.className = "tile";
+        b.type = "button";
+        b.dataset.val = String(v);
+        b.textContent = String(v);
+        b.style.transitionDuration = ANIM_MS + "ms";
+        b.addEventListener("click", () => onTileClicked(v));
+        boardEl.appendChild(b);
+        tileBtn.set(v,b);
+      }
+    }
+
+    function applyTileAppearance(){
+      for(let v=1; v<=8; v++){
+        const b = tileBtn.get(v);
+        b.classList.toggle("img", imageMode && tileImages.has(v));
+        b.innerHTML = ""; // clear
+        if(imageMode && tileImages.has(v)){
+          const img = document.createElement("img");
+          img.src = tileImages.get(v);
+          img.alt = "";
+          b.appendChild(img);
+        }else{
+          b.textContent = String(v);
+        }
+      }
+    }
+
+    function syncTilesToState(animate){
+      setStatus();
+      if(!animate){
+        for(let idx=0; idx<9; idx++){
+          const v = state[idx];
+          if(v===0) continue;
+          const {x,y} = cellPos(idx);
+          const b = tileBtn.get(v);
+          b.style.left = x + "px";
+          b.style.top  = y + "px";
+        }
+        return;
+      }
+
+      animating = true;
+      setControlsEnabled(false);
+
+      // We rely on CSS transitions. We detect end by waiting ANIM_MS.
+      for(let idx=0; idx<9; idx++){
+        const v = state[idx];
+        if(v===0) continue;
+        const {x,y} = cellPos(idx);
+        const b = tileBtn.get(v);
+        b.style.left = x + "px";
+        b.style.top  = y + "px";
+      }
+
+      window.setTimeout(() => {
+        animating = false;
+        if(!autoPlaying) setControlsEnabled(true);
+        setStatus();
+        if(autoPlaying) window.setTimeout(playNextMove, PLAYBACK_GAP_MS);
+      }, ANIM_MS + 5);
+    }
+
+    function applyMoveByTileValue(tileValue, fromAuto){
+      if(animating) return;
+
+      const zeroIdx = state.indexOf(0);
+      const tileIdx = state.indexOf(tileValue);
+      if(!neighbors(zeroIdx).includes(tileIdx)) return;
+
+      const fr = idxToRC(tileIdx);
+      const to = idxToRC(zeroIdx);
+      // swap
+      state[zeroIdx] = tileValue;
+      state[tileIdx] = 0;
+
+      const prefix = fromAuto ? "AUTO" : "USER";
+      log(`[${prefix}] ${tileValue}  (${fr[0]},${fr[1]}) -> (${to[0]},${to[1]})`);
+
+      syncTilesToState(true);
+    }
+
+    function onTileClicked(tileValue){
+      if(autoPlaying) return;
+      applyMoveByTileValue(tileValue, false);
+    }
+
+    // -----------------------------
+    // Buttons
+    // -----------------------------
+    btnSet.addEventListener("click", () => {
+      if(animating || autoPlaying) return;
+      const vals = parseState(inputEl.value);
+      if(!vals){
+        alert("Ungültig: Bitte genau 9 Zahlen 0–8 angeben (jede genau einmal).");
+        return;
+      }
+      if(!isSolvable3x3(vals)){
+        const ok = confirm("Warnung: unlösbar\nDiese Ausgangslage ist (als 3×3) NICHT lösbar.\nTrotzdem setzen?");
+        if(!ok) return;
+      }
+      state = vals.slice();
+      initialState = vals.slice();
+      log(`--- SET: [${state.join(" ")}] ---`);
+      syncTilesToState(true);
+    });
+
+    btnReset.addEventListener("click", () => {
+      if(animating || autoPlaying) return;
+      state = initialState.slice();
+      log(`--- RESET: [${state.join(" ")}] ---`);
+      syncTilesToState(true);
+    });
+
+    btnCheck.addEventListener("click", () => {
+      alert(state.join(",") === GOAL.join(",") ? "✅ Puzzle ist gelöst." : "❌ Noch nicht gelöst.");
+    });
+
+    btnShuffle.addEventListener("click", () => {
+      if(animating || autoPlaying) return;
+
+      state = GOAL.slice();
+      let zeroIdx = state.indexOf(0);
+      let last = null;
+
+      for(let k=0; k<80; k++){
+        let nbs = neighbors(zeroIdx).slice();
+        if(last !== null && nbs.includes(last) && nbs.length > 1){
+          nbs = nbs.filter(x => x !== last);
+        }
+        const nxt = nbs[Math.floor(Math.random() * nbs.length)];
+        // swap with zero
+        [state[zeroIdx], state[nxt]] = [state[nxt], state[zeroIdx]];
+        last = zeroIdx;
+        zeroIdx = nxt;
+      }
+      initialState = state.slice();
+      inputEl.value = state.join(" ");
+      log(`--- SHUFFLE: [${state.join(" ")}] ---`);
+      syncTilesToState(true);
+    });
+
+    btnSolve.addEventListener("click", () => {
+      if(animating || autoPlaying) return;
+      if(!isSolvable3x3(state)){
+        alert("Diese Ausgangslage ist unlösbar.");
+        return;
+      }
+
+      statusEl.textContent = "🧠 Suche nach Lösung …";
+      // kurz den UI-Thread updaten lassen
+      setTimeout(() => {
+        const moves = astarSolve(state);
+        if(moves === null){
+          alert("Keine Lösung gefunden (Limit erreicht).");
+          statusEl.textContent = "";
+          return;
+        }
+        if(moves.length === 0){
+          alert("Ist schon gelöst 🙂");
+          statusEl.textContent = "✅ Zielzustand erreicht!";
+          return;
+        }
+
+        log(`--- AUTO SOLVE: ${moves.length} Züge ---`);
+        pendingMoves = moves.slice();
+        autoPlaying = true;
+
+        btnStop.disabled = false;
+        setControlsEnabled(false);
+        statusEl.textContent = `▶️ Auto-Lösung läuft … (noch ${pendingMoves.length} Züge)`;
+        playNextMove();
+      }, 0);
+    });
+
+    function playNextMove(){
+      if(!autoPlaying || animating) return;
+
+      if(pendingMoves.length === 0){
+        autoPlaying = false;
+        btnStop.disabled = true;
+        setControlsEnabled(true);
+        statusEl.textContent = (state.join(",") === GOAL.join(",")) ? "✅ Auto-Lösung fertig!" : "⏹️ Auto-Lösung beendet.";
+        return;
+      }
+      const nxt = pendingMoves.shift();
+      statusEl.textContent = `▶️ Auto-Lösung läuft … (noch ${pendingMoves.length} Züge)`;
+      applyMoveByTileValue(nxt, true);
+    }
+
+    btnStop.addEventListener("click", () => {
+      if(!autoPlaying) return;
+      autoPlaying = false;
+      pendingMoves = [];
+      btnStop.disabled = true;
+      if(!animating) setControlsEnabled(true);
+      statusEl.textContent = "⏹️ Auto-Lösung gestoppt.";
+    });
+
+    btnLog.addEventListener("click", () => {
+      const vis = !logPanel.classList.contains("visible");
+      logPanel.classList.toggle("visible", vis);
+      btnLog.textContent = vis ? "Log" : "Log";
+    });
+
+    btnLogClear.addEventListener("click", () => {
+      logEl.textContent = "";
+    });
+
+    // -----------------------------
+    // Bild laden / splitten
+    // -----------------------------
+    btnImgLoad.addEventListener("click", () => {
+      if(animating || autoPlaying) return;
+      fileEl.value = "";
+      fileEl.click();
+    });
+
+    fileEl.addEventListener("change", async () => {
+      if(!fileEl.files || !fileEl.files[0]) return;
+      const file = fileEl.files[0];
+      try{
+        const dataUrl = await fileToDataURL(file);
+        await sliceImageIntoTiles(dataUrl);
+        imageMode = true;
+        btnImgClear.disabled = false;
+        applyTileAppearance();
+        log(`--- BILD GELADEN: ${file.name} ---`);
+      }catch(e){
+        console.error(e);
+        alert("Konnte das Bild nicht laden/verarbeiten.");
+      }
+    });
+
+    btnImgClear.addEventListener("click", () => {
+      if(animating || autoPlaying) return;
+      imageMode = false;
+      tileImages.clear();
+      btnImgClear.disabled = true;
+      applyTileAppearance();
+      log("--- BILD GELÖSCHT: Standardoptik ---");
+    });
+
+    function fileToDataURL(file){
+      return new Promise((resolve,reject)=>{
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+
+    function sliceImageIntoTiles(dataUrl){
+      return new Promise((resolve,reject)=>{
+        const img = new Image();
+        img.onload = () => {
+          try{
+            // center-crop square
+            const side = Math.min(img.width, img.height);
+            const x0 = Math.floor((img.width - side)/2);
+            const y0 = Math.floor((img.height - side)/2);
+
+            // inner board side
+            const inner = TILE*3 + GAP*2;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = inner;
+            canvas.height = inner;
+            const ctx = canvas.getContext("2d");
+
+            // draw cropped & scaled to inner
+            ctx.drawImage(img, x0, y0, side, side, 0, 0, inner, inner);
+
+            tileImages.clear();
+
+            // slice into 8 tiles (skip 0)
+            for(let idx=0; idx<9; idx++){
+              const val = GOAL[idx];
+              if(val === 0) continue;
+              const r = Math.floor(idx/3), c = idx%3;
+              const sx = c*(TILE+GAP);
+              const sy = r*(TILE+GAP);
+
+              const tileC = document.createElement("canvas");
+              tileC.width = TILE;
+              tileC.height = TILE;
+              tileC.getContext("2d").drawImage(canvas, sx, sy, TILE, TILE, 0, 0, TILE, TILE);
+              tileImages.set(val, tileC.toDataURL("image/png"));
+            }
+            resolve();
+          }catch(err){
+            reject(err);
+          }
+        };
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+    }
+
+    // Init
+    buildTiles();
+    applyTileAppearance();
+    syncTilesToState(false);
+    setControlsEnabled(true);
+  </script>
+</body>
+</html>
